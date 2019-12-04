@@ -262,7 +262,12 @@ viewPlacement placement =
 viewPlaying : GamePlay -> Html Msg
 viewPlaying playing =
   div []
-    [ viewBoard playing.hexes playing.board playing.selected]
+    [ viewBoard playing.hexes playing.board playing.selected
+    , Html.text 
+      ( case playing.player of
+        WhitePlayer -> ("Whites turn")
+        BlackPlayer -> ("Blacks turn")
+      )]
 
 viewBoardHex : Board -> Maybe AxialCoord -> AxialCoord -> Svg Msg
 viewBoardHex board maybeSelected coord =

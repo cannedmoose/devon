@@ -11229,7 +11229,16 @@ var $author$project$Main$viewPlaying = function (playing) {
 		_List_Nil,
 		_List_fromArray(
 			[
-				A3($author$project$Main$viewBoard, playing.hexes, playing.board, playing.selected)
+				A3($author$project$Main$viewBoard, playing.hexes, playing.board, playing.selected),
+				$elm$html$Html$text(
+				function () {
+					var _v0 = playing.player;
+					if (_v0.$ === 'WhitePlayer') {
+						return 'Whites turn';
+					} else {
+						return 'Blacks turn';
+					}
+				}())
 			]));
 };
 var $author$project$Main$view = function (model) {
