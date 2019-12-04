@@ -38,7 +38,32 @@ addStack : Stack -> Stack -> Stack
 addStack (p1, l1) (p2, l2)
   = (p1, l1 ++ (p2 :: l2))
 
-type alias Board = Dict AxialCoord Stack
+type alias Board =
+  -- Location of dvonn pieces
+  { dvonn : Set AxialCoord 
+  -- Location -> Stacks at that location
+  , stacks : Dict AxialCoord Stack
+  }
+
+emptyBoard : Board
+emptyBoard = Board Set.empty Dict.empty
+
+hasStack : Board -> AxialCoord -> Bool
+hasStack board coord =
+  Dict.member coord board.stacks
+
+getStack : Board -> AxialCoord -> Maybe Stack
+getStack board coord =
+  Dict.get coord board.stacks
+
+addPiece : Board -> AxialCoord -> Piece -> Board
+addPiece board coord piece =
+  { board
+  | stacks = Dict.insert coord (newStack piece) board.stacks
+  , dvonn = case piece of
+      DvonnPiece -> (Set.insert coord board.dvonn)
+      _ -> (board.dvonn)
+  }
 
 type alias Placement =
   { dvonn : Int
@@ -63,7 +88,7 @@ gamePlayFromPlacement { player, board, hexes } =
 
 -- Placement for classic game of Dvonn
 newPlacement : Placement
-newPlacement = Placement 3 23 23 WhitePlayer Dict.empty (hexesGenerator 8 2)
+newPlacement = Placement 3 23 23 WhitePlayer emptyBoard (hexesGenerator 8 2)
 
 type GamePhase 
   = Placing Placement
@@ -113,13 +138,13 @@ nextPlacement {player, white, black, dvonn} =
 
 doPlacement: AxialCoord -> Placement -> Placement
 doPlacement coord placement = 
-  if Dict.member coord placement.board then placement
+  if hasStack placement.board coord then placement
   else if placement.dvonn > 0 then
     let
       updatePiece = { placement | dvonn = placement.dvonn - 1 }
       updatePlayer = { updatePiece | player = nextPlacement updatePiece }
       updateBoard = { updatePlayer
-         | board = Dict.insert coord (newStack DvonnPiece) placement.board }
+         | board = addPiece placement.board coord DvonnPiece }
     in updateBoard
   else
     let
@@ -128,7 +153,7 @@ doPlacement coord placement =
         BlackPlayer -> ({ placement | black = placement.black - 1 }, BlackPiece)
       updatePlayer = {updatePiece | player = nextPlacement updatePiece}
       updateBoard = { updatePlayer
-         | board = Dict.insert coord (newStack piece) placement.board }
+         | board = addPiece placement.board coord piece }
     in updateBoard
 
 placementClick : AxialCoord -> Placement -> Model
@@ -148,7 +173,7 @@ placementClick coord placement =
 randomPlacement : Placement -> Model
 randomPlacement placement =
   let
-    placed = Set.fromList (Dict.keys placement.board)
+    placed = Set.fromList (Dict.keys placement.board.stacks)
     unplaced = Set.diff (Set.fromList placement.hexes) placed
     updated = Set.foldl doPlacement placement unplaced
   in
@@ -163,7 +188,7 @@ maybeHasValue a =
 isSurrounded : Board -> AxialCoord -> Bool
 isSurrounded board coord =
   List.map (addAxial coord) axialDirections
-    |> List.all (\c -> Dict.member c board)
+    |> List.all (hasStack board)
 
 stackSize : Stack -> Int
 stackSize (a, l) = 1 + List.length l 
@@ -171,28 +196,30 @@ stackSize (a, l) = 1 + List.length l
 validMoves : Board -> AxialCoord -> List AxialCoord
 validMoves board coord =
   let
-    size = Dict.get coord board
+    size = getStack board coord
       |> Maybe.map stackSize
       |> Maybe.withDefault 0
   in
     if size > 0 && not (isSurrounded board coord) then
       List.map (axialMult size) axialDirections
         |> List.map (addAxial coord)
-        |> List.filter (\c -> Dict.member c board) 
+        |> List.filter (hasStack board) 
     else
       []
 
 doMove : Board -> AxialCoord -> AxialCoord -> Board
 doMove board from to =
   let
-    fromStack = Dict.get from board
-    toStack = Dict.get to board
+    fromStack = getStack board from
+    toStack = getStack board to
     updatedStack = Maybe.map2 addStack fromStack toStack
   in
     case updatedStack of
       Just stack -> (
-        Dict.insert to stack board
-        |> Dict.remove from
+        { board
+        | stacks = Dict.insert to stack board.stacks
+          |> Dict.remove from
+        }
         )
       Nothing -> board
 
@@ -200,7 +227,7 @@ playingClick : AxialCoord -> GamePlay -> Model
 playingClick coord playing
   =
   let
-    maybeStack = Dict.get coord playing.board
+    maybeStack = getStack playing.board coord
     {player, board} = playing
   in
     case maybeStack of
@@ -236,19 +263,19 @@ view model =
     Placing placement -> (viewPlacement placement)
     Playing gameplay -> (viewPlaying gameplay)
 
-viewBoard : List AxialCoord -> Board -> Maybe AxialCoord -> Svg Msg
-viewBoard hexes board selected =
+viewBoard : List AxialCoord -> Board -> Maybe AxialCoord -> Player -> Svg Msg
+viewBoard hexes board selected player =
   svg
       [ width "400"
       , height "400"
       , viewBox "-200 -200 800 600"
       ]
-      (hexes |> List.map (viewBoardHex board selected))
+      (hexes |> List.map (viewBoardHex board selected player))
 
 viewPlacement : Placement -> Html Msg
 viewPlacement placement =
   div []
-    [ viewBoard placement.hexes placement.board Nothing
+    [ viewBoard placement.hexes placement.board Nothing placement.player
     , Html.text 
       ( case placement.player of
         WhitePlayer -> ("Whites turn")
@@ -262,25 +289,30 @@ viewPlacement placement =
 viewPlaying : GamePlay -> Html Msg
 viewPlaying playing =
   div []
-    [ viewBoard playing.hexes playing.board playing.selected
+    [ viewBoard playing.hexes playing.board playing.selected playing.player
     , Html.text 
       ( case playing.player of
         WhitePlayer -> ("Whites turn")
         BlackPlayer -> ("Blacks turn")
       )]
 
-viewBoardHex : Board -> Maybe AxialCoord -> AxialCoord -> Svg Msg
-viewBoardHex board maybeSelected coord =
+-- TODO should have some kinf of hex context
+-- Want board, selected, current player
+viewBoardHex : Board -> Maybe AxialCoord -> Player -> AxialCoord -> Svg Msg
+viewBoardHex board maybeSelected player coord =
   let
-    maybePiece = Dict.get coord board |> Maybe.map Tuple.first
-    color = case maybePiece of
-      Nothing -> ("grey")
-      Just piece -> (case piece of
-        WhitePiece -> ("white")
-        DvonnPiece -> ("red")
-        BlackPiece -> ("black"))
+    maybePiece = getStack board coord
+    (color, isPlayers) = case maybePiece of
+      Nothing -> ("grey", False)
+      Just (piece , xs) -> (case piece of
+        WhitePiece -> ("white", stackOwnedBy (piece , xs) player)
+        DvonnPiece -> ("red", False)
+        BlackPiece -> ("black", stackOwnedBy (piece , xs) player))
     selectedColor = case maybeSelected of
-      Nothing -> Nothing
+      Nothing -> (
+        if List.isEmpty (validMoves board coord) || not isPlayers then Nothing
+        else Just "orange"
+        )
       Just selected -> (
         if selected == coord then Just "green"
         else if List.member coord (validMoves board selected) then Just "yellow"

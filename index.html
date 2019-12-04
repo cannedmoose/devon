@@ -4915,8 +4915,20 @@ var $author$project$Main$Placement = F6(
 		return {black: black, board: board, dvonn: dvonn, hexes: hexes, player: player, white: white};
 	});
 var $author$project$Main$WhitePlayer = {$: 'WhitePlayer'};
+var $author$project$Main$Board = F2(
+	function (dvonn, stacks) {
+		return {dvonn: dvonn, stacks: stacks};
+	});
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
+var $elm$core$Basics$identity = function (x) {
+	return x;
+};
+var $elm$core$Set$Set_elm_builtin = function (a) {
+	return {$: 'Set_elm_builtin', a: a};
+};
+var $elm$core$Set$empty = $elm$core$Set$Set_elm_builtin($elm$core$Dict$empty);
+var $author$project$Main$emptyBoard = A2($author$project$Main$Board, $elm$core$Set$empty, $elm$core$Dict$empty);
 var $elm$core$Basics$apR = F2(
 	function (x, f) {
 		return f(x);
@@ -5278,7 +5290,7 @@ var $author$project$Main$newPlacement = A6(
 	23,
 	23,
 	$author$project$Main$WhitePlayer,
-	$elm$core$Dict$empty,
+	$author$project$Main$emptyBoard,
 	A2($author$project$Main$hexesGenerator, 8, 2));
 var $author$project$Main$init = {
 	phase: $author$project$Main$Placing($author$project$Main$newPlacement)
@@ -9244,9 +9256,6 @@ var $elm$browser$Debugger$Metadata$encode = function (_v0) {
 				$elm$browser$Debugger$Metadata$encodeTypes(types))
 			]));
 };
-var $elm$core$Basics$identity = function (x) {
-	return x;
-};
 var $elm$core$Task$Perform = function (a) {
 	return {$: 'Perform', a: a};
 };
@@ -10684,6 +10693,34 @@ var $author$project$Main$Playing = function (a) {
 var $author$project$Main$BlackPiece = {$: 'BlackPiece'};
 var $author$project$Main$DvonnPiece = {$: 'DvonnPiece'};
 var $author$project$Main$WhitePiece = {$: 'WhitePiece'};
+var $elm$core$Set$insert = F2(
+	function (key, _v0) {
+		var dict = _v0.a;
+		return $elm$core$Set$Set_elm_builtin(
+			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
+	});
+var $author$project$Main$newStack = function (piece) {
+	return _Utils_Tuple2(piece, _List_Nil);
+};
+var $author$project$Main$addPiece = F3(
+	function (board, coord, piece) {
+		return _Utils_update(
+			board,
+			{
+				dvonn: function () {
+					if (piece.$ === 'DvonnPiece') {
+						return A2($elm$core$Set$insert, coord, board.dvonn);
+					} else {
+						return board.dvonn;
+					}
+				}(),
+				stacks: A3(
+					$elm$core$Dict$insert,
+					coord,
+					$author$project$Main$newStack(piece),
+					board.stacks)
+			});
+	});
 var $elm$core$Dict$member = F2(
 	function (key, dict) {
 		var _v0 = A2($elm$core$Dict$get, key, dict);
@@ -10693,9 +10730,10 @@ var $elm$core$Dict$member = F2(
 			return false;
 		}
 	});
-var $author$project$Main$newStack = function (piece) {
-	return _Utils_Tuple2(piece, _List_Nil);
-};
+var $author$project$Main$hasStack = F2(
+	function (board, coord) {
+		return A2($elm$core$Dict$member, coord, board.stacks);
+	});
 var $author$project$Main$BlackPlayer = {$: 'BlackPlayer'};
 var $author$project$Main$switchPlayer = function (player) {
 	if (player.$ === 'WhitePlayer') {
@@ -10713,7 +10751,7 @@ var $author$project$Main$nextPlacement = function (_v0) {
 };
 var $author$project$Main$doPlacement = F2(
 	function (coord, placement) {
-		if (A2($elm$core$Dict$member, coord, placement.board)) {
+		if (A2($author$project$Main$hasStack, placement.board, coord)) {
 			return placement;
 		} else {
 			if (placement.dvonn > 0) {
@@ -10728,11 +10766,7 @@ var $author$project$Main$doPlacement = F2(
 				var updateBoard = _Utils_update(
 					updatePlayer,
 					{
-						board: A3(
-							$elm$core$Dict$insert,
-							coord,
-							$author$project$Main$newStack($author$project$Main$DvonnPiece),
-							placement.board)
+						board: A3($author$project$Main$addPiece, placement.board, coord, $author$project$Main$DvonnPiece)
 					});
 				return updateBoard;
 			} else {
@@ -10762,11 +10796,7 @@ var $author$project$Main$doPlacement = F2(
 				var updateBoard = _Utils_update(
 					updatePlayer,
 					{
-						board: A3(
-							$elm$core$Dict$insert,
-							coord,
-							$author$project$Main$newStack(piece),
-							placement.board)
+						board: A3($author$project$Main$addPiece, placement.board, coord, piece)
 					});
 				return updateBoard;
 			}
@@ -10806,6 +10836,10 @@ var $author$project$Main$addStack = F2(
 				l1,
 				A2($elm$core$List$cons, p2, l2)));
 	});
+var $author$project$Main$getStack = F2(
+	function (board, coord) {
+		return A2($elm$core$Dict$get, coord, board.stacks);
+	});
 var $elm$core$Maybe$map2 = F3(
 	function (func, ma, mb) {
 		if (ma.$ === 'Nothing') {
@@ -10823,15 +10857,19 @@ var $elm$core$Maybe$map2 = F3(
 	});
 var $author$project$Main$doMove = F3(
 	function (board, from, to) {
-		var toStack = A2($elm$core$Dict$get, to, board);
-		var fromStack = A2($elm$core$Dict$get, from, board);
+		var toStack = A2($author$project$Main$getStack, board, to);
+		var fromStack = A2($author$project$Main$getStack, board, from);
 		var updatedStack = A3($elm$core$Maybe$map2, $author$project$Main$addStack, fromStack, toStack);
 		if (updatedStack.$ === 'Just') {
 			var stack = updatedStack.a;
-			return A2(
-				$elm$core$Dict$remove,
-				from,
-				A3($elm$core$Dict$insert, to, stack, board));
+			return _Utils_update(
+				board,
+				{
+					stacks: A2(
+						$elm$core$Dict$remove,
+						from,
+						A3($elm$core$Dict$insert, to, stack, board.stacks))
+				});
 		} else {
 			return board;
 		}
@@ -10899,9 +10937,7 @@ var $author$project$Main$isSurrounded = F2(
 	function (board, coord) {
 		return A2(
 			$elm$core$List$all,
-			function (c) {
-				return A2($elm$core$Dict$member, c, board);
-			},
+			$author$project$Main$hasStack(board),
 			A2(
 				$elm$core$List$map,
 				$author$project$Main$addAxial(coord),
@@ -10930,12 +10966,10 @@ var $author$project$Main$validMoves = F2(
 			A2(
 				$elm$core$Maybe$map,
 				$author$project$Main$stackSize,
-				A2($elm$core$Dict$get, coord, board)));
+				A2($author$project$Main$getStack, board, coord)));
 		return ((size > 0) && (!A2($author$project$Main$isSurrounded, board, coord))) ? A2(
 			$elm$core$List$filter,
-			function (c) {
-				return A2($elm$core$Dict$member, c, board);
-			},
+			$author$project$Main$hasStack(board),
 			A2(
 				$elm$core$List$map,
 				$author$project$Main$addAxial(coord),
@@ -10946,7 +10980,7 @@ var $author$project$Main$validMoves = F2(
 	});
 var $author$project$Main$playingClick = F2(
 	function (coord, playing) {
-		var maybeStack = A2($elm$core$Dict$get, coord, playing.board);
+		var maybeStack = A2($author$project$Main$getStack, playing.board, coord);
 		var _v0 = playing;
 		var player = _v0.player;
 		var board = _v0.board;
@@ -10995,9 +11029,6 @@ var $author$project$Main$playingClick = F2(
 			}
 		}
 	});
-var $elm$core$Set$Set_elm_builtin = function (a) {
-	return {$: 'Set_elm_builtin', a: a};
-};
 var $elm$core$Dict$diff = F2(
 	function (t1, t2) {
 		return A3(
@@ -11028,19 +11059,12 @@ var $elm$core$Set$foldl = F3(
 			initialState,
 			dict);
 	});
-var $elm$core$Set$empty = $elm$core$Set$Set_elm_builtin($elm$core$Dict$empty);
-var $elm$core$Set$insert = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return $elm$core$Set$Set_elm_builtin(
-			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
-	});
 var $elm$core$Set$fromList = function (list) {
 	return A3($elm$core$List$foldl, $elm$core$Set$insert, $elm$core$Set$empty, list);
 };
 var $author$project$Main$randomPlacement = function (placement) {
 	var placed = $elm$core$Set$fromList(
-		$elm$core$Dict$keys(placement.board));
+		$elm$core$Dict$keys(placement.board.stacks));
 	var unplaced = A2(
 		$elm$core$Set$diff,
 		$elm$core$Set$fromList(placement.hexes),
@@ -11122,36 +11146,48 @@ var $author$project$Main$viewCircleAt = F4(
 				]),
 			_List_Nil);
 	});
-var $author$project$Main$viewBoardHex = F3(
-	function (board, maybeSelected, coord) {
+var $author$project$Main$viewBoardHex = F4(
+	function (board, maybeSelected, player, coord) {
+		var maybePiece = A2($author$project$Main$getStack, board, coord);
+		var _v0 = function () {
+			if (maybePiece.$ === 'Nothing') {
+				return _Utils_Tuple2('grey', false);
+			} else {
+				var _v2 = maybePiece.a;
+				var piece = _v2.a;
+				var xs = _v2.b;
+				switch (piece.$) {
+					case 'WhitePiece':
+						return _Utils_Tuple2(
+							'white',
+							A2(
+								$author$project$Main$stackOwnedBy,
+								_Utils_Tuple2(piece, xs),
+								player));
+					case 'DvonnPiece':
+						return _Utils_Tuple2('red', false);
+					default:
+						return _Utils_Tuple2(
+							'black',
+							A2(
+								$author$project$Main$stackOwnedBy,
+								_Utils_Tuple2(piece, xs),
+								player));
+				}
+			}
+		}();
+		var color = _v0.a;
+		var isPlayers = _v0.b;
 		var selectedColor = function () {
 			if (maybeSelected.$ === 'Nothing') {
-				return $elm$core$Maybe$Nothing;
+				return ($elm$core$List$isEmpty(
+					A2($author$project$Main$validMoves, board, coord)) || (!isPlayers)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just('orange');
 			} else {
 				var selected = maybeSelected.a;
 				return _Utils_eq(selected, coord) ? $elm$core$Maybe$Just('green') : (A2(
 					$elm$core$List$member,
 					coord,
 					A2($author$project$Main$validMoves, board, selected)) ? $elm$core$Maybe$Just('yellow') : $elm$core$Maybe$Nothing);
-			}
-		}();
-		var maybePiece = A2(
-			$elm$core$Maybe$map,
-			$elm$core$Tuple$first,
-			A2($elm$core$Dict$get, coord, board));
-		var color = function () {
-			if (maybePiece.$ === 'Nothing') {
-				return 'grey';
-			} else {
-				var piece = maybePiece.a;
-				switch (piece.$) {
-					case 'WhitePiece':
-						return 'white';
-					case 'DvonnPiece':
-						return 'red';
-					default:
-						return 'black';
-				}
 			}
 		}();
 		return A2(
@@ -11180,8 +11216,8 @@ var $author$project$Main$viewBoardHex = F3(
 	});
 var $elm$svg$Svg$Attributes$viewBox = _VirtualDom_attribute('viewBox');
 var $elm$svg$Svg$Attributes$width = _VirtualDom_attribute('width');
-var $author$project$Main$viewBoard = F3(
-	function (hexes, board, selected) {
+var $author$project$Main$viewBoard = F4(
+	function (hexes, board, selected, player) {
 		return A2(
 			$elm$svg$Svg$svg,
 			_List_fromArray(
@@ -11192,7 +11228,7 @@ var $author$project$Main$viewBoard = F3(
 				]),
 			A2(
 				$elm$core$List$map,
-				A2($author$project$Main$viewBoardHex, board, selected),
+				A3($author$project$Main$viewBoardHex, board, selected, player),
 				hexes));
 	});
 var $author$project$Main$viewPlacement = function (placement) {
@@ -11201,7 +11237,7 @@ var $author$project$Main$viewPlacement = function (placement) {
 		_List_Nil,
 		_List_fromArray(
 			[
-				A3($author$project$Main$viewBoard, placement.hexes, placement.board, $elm$core$Maybe$Nothing),
+				A4($author$project$Main$viewBoard, placement.hexes, placement.board, $elm$core$Maybe$Nothing, placement.player),
 				$elm$html$Html$text(
 				function () {
 					var _v0 = placement.player;
@@ -11229,7 +11265,7 @@ var $author$project$Main$viewPlaying = function (playing) {
 		_List_Nil,
 		_List_fromArray(
 			[
-				A3($author$project$Main$viewBoard, playing.hexes, playing.board, playing.selected),
+				A4($author$project$Main$viewBoard, playing.hexes, playing.board, playing.selected, playing.player),
 				$elm$html$Html$text(
 				function () {
 					var _v0 = playing.player;
