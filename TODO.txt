@@ -1,0 +1,5 @@
+P1 Show stack size
+
+P2 Animations
+P2 Online play (look into web rtc)
+P2 Placement saver (save placement so you can play again on it in the future)

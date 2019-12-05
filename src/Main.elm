@@ -27,8 +27,8 @@ type alias Stack = (Piece, List Piece)
 newStack: Piece -> Stack
 newStack piece = (piece, [])
 
-stackOwnedBy : Stack -> Player -> Bool
-stackOwnedBy (piece, _) player =
+stackOwnedBy : Player -> Stack -> Bool
+stackOwnedBy player (piece, _) =
   case (piece, player) of
     (WhitePiece, WhitePlayer) -> True
     (BlackPiece, BlackPlayer) -> True
@@ -65,6 +65,10 @@ addPiece board coord piece =
       _ -> (board.dvonn)
   }
 
+isDvonn : Board -> AxialCoord -> Bool
+isDvonn board coord =
+  Set.member coord board.dvonn
+
 type alias Placement =
   { dvonn : Int
   , black : Int
@@ -93,6 +97,7 @@ newPlacement = Placement 3 23 23 WhitePlayer emptyBoard (hexesGenerator 8 2)
 type GamePhase 
   = Placing Placement
   | Playing GamePlay
+  | GameOver (List AxialCoord) Board 
 
 type alias Model =
   { phase : GamePhase
@@ -108,6 +113,7 @@ type Msg
   = NoOp
   | ClickedHex AxialCoord
   | RandoPlacement
+  | Restart
 
 update msg model =
   case msg of
@@ -116,18 +122,21 @@ update msg model =
       case model.phase of
         Placing placement -> (placementClick coord placement)
         Playing gameplay -> (playingClick coord gameplay)
+        GameOver _ _ -> model 
       )
     RandoPlacement -> (
       case model.phase of
         Placing placement -> (randomPlacement placement)
         Playing gameplay -> model
+        GameOver _ _ -> model
       )
+    Restart -> (init)
 
 switchPlayer : Player -> Player
 switchPlayer player =
   case player of
     WhitePlayer -> BlackPlayer
-    BlackPlayer -> WhitePlayer 
+    BlackPlayer -> WhitePlayer
 
 nextPlacement : Placement -> Player
 nextPlacement {player, white, black, dvonn} =
@@ -135,6 +144,32 @@ nextPlacement {player, white, black, dvonn} =
   else if white == 0 then BlackPlayer
   else if black == 0 then WhitePlayer
   else switchPlayer player
+
+stacksFor : Board -> Player -> Dict AxialCoord Stack
+stacksFor board player =
+  Dict.filter (\c -> stackOwnedBy player) board.stacks
+
+movesFor : Board -> Player -> Set AxialCoord
+movesFor board player =
+  stacksFor board player
+    |> Dict.keys 
+    |> List.filter (\c -> not (List.isEmpty (validMoves board c)) )
+    |> Set.fromList
+
+nextPlaying : Board -> Player -> Maybe Player
+nextPlaying board player =
+  let
+    whiteMoves = not (Set.isEmpty (movesFor board WhitePlayer))
+    blackMoves = not (Set.isEmpty (movesFor board BlackPlayer))
+  in
+    if whiteMoves && blackMoves then
+      Just (switchPlayer player)
+    else if whiteMoves then
+      Just WhitePlayer
+    else if blackMoves then
+      Just BlackPlayer
+    else
+      Nothing
 
 doPlacement: AxialCoord -> Placement -> Placement
 doPlacement coord placement = 
@@ -207,11 +242,47 @@ validMoves board coord =
     else
       []
 
+neighbours : Board -> AxialCoord -> List AxialCoord
+neighbours board coord =
+  axialDirections
+    |> List.map (addAxial coord)
+    |> List.filter (hasStack board) 
+
+-- Recursively flood fill a board
+-- Colored are all colored peices, recent are peices colored in last call
+-- For first call these should be the same.
+floodfill : Board -> Set AxialCoord  -> Set AxialCoord -> Set AxialCoord
+floodfill board colored recent =
+  let
+    recentNeighbours = Set.map (neighbours board) recent
+      |> Set.toList |> List.concat |> Set.fromList
+      |> (\s -> Set.diff s colored)
+    newColored = Set.union colored recentNeighbours
+  in
+    if Set.isEmpty recentNeighbours then
+      colored
+    else
+      Set.union newColored (floodfill board newColored recentNeighbours)
+
+prunePieces : Board -> Board
+prunePieces board =
+  let
+    currentStacks = Dict.keys board.stacks
+      |> Set.fromList
+    keepStacks = floodfill board board.dvonn board.dvonn
+  in
+    { board
+    | stacks = Set.diff currentStacks keepStacks
+      |> Set.foldl Dict.remove board.stacks
+    }
+
+
 doMove : Board -> AxialCoord -> AxialCoord -> Board
 doMove board from to =
   let
     fromStack = getStack board from
     toStack = getStack board to
+    isFromDvonn = isDvonn board from
     updatedStack = Maybe.map2 addStack fromStack toStack
   in
     case updatedStack of
@@ -219,7 +290,11 @@ doMove board from to =
         { board
         | stacks = Dict.insert to stack board.stacks
           |> Dict.remove from
-        }
+        , dvonn = if isFromDvonn then 
+            Set.remove from board.dvonn
+            |> Set.insert to
+          else board.dvonn 
+        } |> prunePieces
         )
       Nothing -> board
 
@@ -237,7 +312,7 @@ playingClick coord playing
       -- Nothing selected
       Nothing ->
         if (validMoves board coord |> List.isEmpty)
-          || not (stackOwnedBy stack player) then
+          || not (stackOwnedBy player stack) then
         -- No valid moves or stack is owned by someone else, do nothing.
           { phase = Playing playing }
         else
@@ -246,12 +321,21 @@ playingClick coord playing
       -- Something selected
       Just selected ->
         if List.member coord (validMoves board selected) then
-          -- Is a valid move, do it and change turns
-          { phase = Playing { playing 
-            | board = (doMove board selected coord)
-            , player = switchPlayer player
-            , selected = Nothing
-            } }
+          -- Is a valid move, do it and change turns/end game
+          let
+            newBoard = (doMove board selected coord)
+            maybeNextPlayer = nextPlaying newBoard player
+          in
+            case maybeNextPlayer of
+              Nothing -> { phase = (GameOver playing.hexes newBoard) }
+              Just next -> (
+                { phase = Playing { playing 
+                  | board = newBoard
+                  , player = next
+                  , selected = Nothing
+                  } 
+                }
+                )
         else
           -- Clicked is not a valid move, unselect
           { phase = Playing { playing | selected = Nothing } }
@@ -262,8 +346,9 @@ view model =
   case model.phase of
     Placing placement -> (viewPlacement placement)
     Playing gameplay -> (viewPlaying gameplay)
+    GameOver hexes board -> (viewGameOver hexes board)
 
-viewBoard : List AxialCoord -> Board -> Maybe AxialCoord -> Player -> Svg Msg
+viewBoard : List AxialCoord -> Board -> Maybe AxialCoord -> Maybe Player -> Svg Msg
 viewBoard hexes board selected player =
   svg
       [ width "400"
@@ -275,7 +360,7 @@ viewBoard hexes board selected player =
 viewPlacement : Placement -> Html Msg
 viewPlacement placement =
   div []
-    [ viewBoard placement.hexes placement.board Nothing placement.player
+    [ viewBoard placement.hexes placement.board Nothing (Just placement.player)
     , Html.text 
       ( case placement.player of
         WhitePlayer -> ("Whites turn")
@@ -289,25 +374,66 @@ viewPlacement placement =
 viewPlaying : GamePlay -> Html Msg
 viewPlaying playing =
   div []
-    [ viewBoard playing.hexes playing.board playing.selected playing.player
+    [ viewBoard playing.hexes playing.board playing.selected (Just playing.player)
     , Html.text 
-      ( case playing.player of
+      (case playing.player of
         WhitePlayer -> ("Whites turn")
         BlackPlayer -> ("Blacks turn")
       )]
 
--- TODO should have some kinf of hex context
+winner : Board -> Maybe Player
+winner board =
+  let
+    whiteStackSize = stacksFor board WhitePlayer
+      |> Dict.values
+      |> List.map stackSize
+      |> List.foldl (+) 0 
+    blackStackSize = stacksFor board BlackPlayer
+      |> Dict.values
+      |> List.map stackSize
+      |> List.foldl (+) 0 
+  in
+    if whiteStackSize > blackStackSize then
+      Just WhitePlayer
+    else if blackStackSize > whiteStackSize then
+      Just BlackPlayer
+    else
+      Nothing
+
+
+viewGameOver : List AxialCoord -> Board -> Html Msg
+viewGameOver hexes board =
+  div []
+    [ viewBoard hexes board Nothing Nothing
+    , Html.text 
+      ( case winner board of
+        Nothing -> ("You both lose")
+        Just player -> (
+            case player of
+              WhitePlayer -> ("Whites Wins!")
+              BlackPlayer -> ("Blacks wins!")
+          )
+      )
+    , button
+      [onClick Restart]
+      [Html.text "Start again"]
+    ]
+
+-- TODO should have some kind of hex context
 -- Want board, selected, current player
-viewBoardHex : Board -> Maybe AxialCoord -> Player -> AxialCoord -> Svg Msg
+viewBoardHex : Board -> Maybe AxialCoord -> Maybe Player -> AxialCoord -> Svg Msg
 viewBoardHex board maybeSelected player coord =
   let
     maybePiece = getStack board coord
-    (color, isPlayers) = case maybePiece of
-      Nothing -> ("grey", False)
+    color = case maybePiece of
+      Nothing -> ("grey")
       Just (piece , xs) -> (case piece of
-        WhitePiece -> ("white", stackOwnedBy (piece , xs) player)
-        DvonnPiece -> ("red", False)
-        BlackPiece -> ("black", stackOwnedBy (piece , xs) player))
+        WhitePiece -> ("white")
+        DvonnPiece -> ("red")
+        BlackPiece -> ("black"))
+    isPlayers = Maybe.map2 stackOwnedBy player maybePiece
+      |> Maybe.withDefault False
+
     selectedColor = case maybeSelected of
       Nothing -> (
         if List.isEmpty (validMoves board coord) || not isPlayers then Nothing
