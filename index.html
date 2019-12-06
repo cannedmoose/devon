@@ -11257,9 +11257,29 @@ var $author$project$Main$update = F2(
 		}
 	});
 var $author$project$Main$Restart = {$: 'Restart'};
+var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
+var $elm$svg$Svg$Attributes$stroke = _VirtualDom_attribute('stroke');
+var $author$project$Main$bgAttribs = _List_fromArray(
+	[
+		$elm$svg$Svg$Attributes$fill('blanchedalmond'),
+		$elm$svg$Svg$Attributes$stroke('burlywood')
+	]);
 var $elm$svg$Svg$Attributes$height = _VirtualDom_attribute('height');
 var $elm$svg$Svg$trustedNode = _VirtualDom_nodeNS('http://www.w3.org/2000/svg');
 var $elm$svg$Svg$svg = $elm$svg$Svg$trustedNode('svg');
+var $elm$svg$Svg$Attributes$viewBox = _VirtualDom_attribute('viewBox');
+var $elm$svg$Svg$Attributes$width = _VirtualDom_attribute('width');
+var $author$project$Main$viewBoard = function (c) {
+	return A2(
+		$elm$svg$Svg$svg,
+		_List_fromArray(
+			[
+				$elm$svg$Svg$Attributes$width('400'),
+				$elm$svg$Svg$Attributes$height('400'),
+				$elm$svg$Svg$Attributes$viewBox('-200 -200 800 600')
+			]),
+		c);
+};
 var $elm$svg$Svg$g = $elm$svg$Svg$trustedNode('g');
 var $author$project$Main$ClickedHex = function (a) {
 	return {$: 'ClickedHex', a: a};
@@ -11273,110 +11293,158 @@ var $author$project$Main$axialToPixel = F2(
 			size * (($elm$core$Basics$sqrt(3) * q) + ((r * $elm$core$Basics$sqrt(3)) / 2)),
 			(size * (3 / 2)) * r);
 	});
-var $elm$svg$Svg$circle = $elm$svg$Svg$trustedNode('circle');
-var $elm$svg$Svg$Attributes$cx = _VirtualDom_attribute('cx');
-var $elm$svg$Svg$Attributes$cy = _VirtualDom_attribute('cy');
-var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
-var $elm$svg$Svg$Attributes$r = _VirtualDom_attribute('r');
-var $elm$svg$Svg$Attributes$stroke = _VirtualDom_attribute('stroke');
-var $author$project$Main$viewCircleAt = F4(
-	function (hexSize, radius, c, coords) {
+var $elm$core$Basics$cos = _Basics_cos;
+var $elm$core$Basics$pi = _Basics_pi;
+var $elm$svg$Svg$Attributes$points = _VirtualDom_attribute('points');
+var $elm$svg$Svg$polygon = $elm$svg$Svg$trustedNode('polygon');
+var $elm$core$Basics$sin = _Basics_sin;
+var $author$project$Main$viewHexAt = F3(
+	function (attribs, hexSize, coords) {
 		var _v0 = A2($author$project$Main$axialToPixel, hexSize, coords);
 		var x = _v0.a;
 		var y = _v0.b;
+		var p = A2(
+			$elm$core$List$map,
+			function (a) {
+				return _Utils_Tuple2(
+					x + (hexSize * $elm$core$Basics$sin(a)),
+					y + (hexSize * $elm$core$Basics$cos(a)));
+			},
+			A2(
+				$elm$core$List$map,
+				function (a) {
+					return (a * $elm$core$Basics$pi) / 3;
+				},
+				A2(
+					$elm$core$List$map,
+					$elm$core$Basics$toFloat,
+					A2($elm$core$List$range, 0, 5))));
+		var pointsString = A3(
+			$elm$core$List$foldl,
+			$elm$core$Basics$append,
+			'',
+			A2(
+				$elm$core$List$intersperse,
+				' ',
+				A2(
+					$elm$core$List$map,
+					function (_v1) {
+						var i = _v1.a;
+						var j = _v1.b;
+						return $elm$core$String$fromFloat(i) + (',' + $elm$core$String$fromFloat(j));
+					},
+					p)));
 		return A2(
-			$elm$svg$Svg$circle,
-			_List_fromArray(
-				[
-					$elm$svg$Svg$Attributes$cx(
-					$elm$core$String$fromFloat(x)),
-					$elm$svg$Svg$Attributes$cy(
-					$elm$core$String$fromFloat(y)),
-					$elm$svg$Svg$Attributes$r(
-					$elm$core$String$fromFloat(radius)),
-					$elm$svg$Svg$Attributes$fill(c),
-					$elm$svg$Svg$Attributes$stroke('red'),
-					$elm$html$Html$Events$onClick(
-					$author$project$Main$ClickedHex(coords))
-				]),
+			$elm$svg$Svg$polygon,
+			A2(
+				$elm$core$List$cons,
+				$elm$html$Html$Events$onClick(
+					$author$project$Main$ClickedHex(coords)),
+				A2(
+					$elm$core$List$cons,
+					$elm$svg$Svg$Attributes$points(pointsString),
+					attribs)),
 			_List_Nil);
 	});
-var $author$project$Main$viewBoardHex = F4(
-	function (board, maybeSelected, player, coord) {
-		var maybePiece = A2($author$project$Main$getStack, board, coord);
-		var isPlayers = A2(
-			$elm$core$Maybe$withDefault,
-			false,
-			A3($elm$core$Maybe$map2, $author$project$Main$stackOwnedBy, player, maybePiece));
-		var selectedColor = function () {
-			if (maybeSelected.$ === 'Nothing') {
-				return ($elm$core$List$isEmpty(
-					A2($author$project$Main$validMoves, board, coord)) || (!isPlayers)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just('orange');
-			} else {
-				var selected = maybeSelected.a;
-				return _Utils_eq(selected, coord) ? $elm$core$Maybe$Just('green') : (A2(
-					$elm$core$List$member,
-					coord,
-					A2($author$project$Main$validMoves, board, selected)) ? $elm$core$Maybe$Just('yellow') : $elm$core$Maybe$Nothing);
-			}
-		}();
-		var color = function () {
-			if (maybePiece.$ === 'Nothing') {
-				return 'grey';
-			} else {
-				var _v1 = maybePiece.a;
-				var piece = _v1.a;
-				var xs = _v1.b;
-				switch (piece.$) {
-					case 'WhitePiece':
-						return 'white';
-					case 'DvonnPiece':
-						return 'red';
-					default:
-						return 'black';
-				}
-			}
-		}();
+var $author$project$Main$viewHexes = F3(
+	function (size, attribs, coords) {
 		return A2(
 			$elm$svg$Svg$g,
 			_List_Nil,
-			_Utils_ap(
-				_List_fromArray(
-					[
-						A4($author$project$Main$viewCircleAt, 30, 20, color, coord)
-					]),
-				A2(
-					$elm$core$Maybe$withDefault,
-					_List_Nil,
-					A2(
-						$elm$core$Maybe$map,
-						function (a) {
-							return _List_fromArray(
-								[
-									a(coord)
-								]);
-						},
-						A2(
-							$elm$core$Maybe$map,
-							A2($author$project$Main$viewCircleAt, 30, 5),
-							selectedColor)))));
-	});
-var $elm$svg$Svg$Attributes$viewBox = _VirtualDom_attribute('viewBox');
-var $elm$svg$Svg$Attributes$width = _VirtualDom_attribute('width');
-var $author$project$Main$viewBoard = F4(
-	function (hexes, board, selected, player) {
-		return A2(
-			$elm$svg$Svg$svg,
-			_List_fromArray(
-				[
-					$elm$svg$Svg$Attributes$width('400'),
-					$elm$svg$Svg$Attributes$height('400'),
-					$elm$svg$Svg$Attributes$viewBox('-200 -200 800 600')
-				]),
 			A2(
 				$elm$core$List$map,
-				A3($author$project$Main$viewBoardHex, board, selected, player),
-				hexes));
+				A2($author$project$Main$viewHexAt, attribs, size),
+				coords));
+	});
+var $elm$svg$Svg$circle = $elm$svg$Svg$trustedNode('circle');
+var $elm$svg$Svg$Attributes$cx = _VirtualDom_attribute('cx');
+var $elm$svg$Svg$Attributes$cy = _VirtualDom_attribute('cy');
+var $elm$core$Basics$modBy = _Basics_modBy;
+var $author$project$Main$pieceToColor = function (piece) {
+	switch (piece.$) {
+		case 'WhitePiece':
+			return 'floralwhite';
+		case 'DvonnPiece':
+			return 'deeppink';
+		default:
+			return 'grey';
+	}
+};
+var $elm$svg$Svg$Attributes$r = _VirtualDom_attribute('r');
+var $author$project$Main$strokeColor = function (piece) {
+	switch (piece.$) {
+		case 'WhitePiece':
+			return 'black';
+		case 'DvonnPiece':
+			return 'deeppink';
+		default:
+			return 'black';
+	}
+};
+var $author$project$Main$viewStack = F3(
+	function (hexSize, coord, _v0) {
+		var piece = _v0.a;
+		var rest = _v0.b;
+		var stack = $elm$core$List$reverse(
+			A2($elm$core$List$cons, piece, rest));
+		var size = $author$project$Main$stackSize(
+			_Utils_Tuple2(piece, rest));
+		var sizeDiv2 = (size / 2) | 0;
+		var sizeMod2 = A2($elm$core$Basics$modBy, 2, size);
+		var radius = 0.7 * hexSize;
+		var radiusDelta = radius / size;
+		var deltas = A2($elm$core$List$range, 0, size);
+		var z = A3(
+			$elm$core$List$map2,
+			F2(
+				function (a, b) {
+					return _Utils_Tuple2(a, b);
+				}),
+			stack,
+			deltas);
+		var _v1 = A2($author$project$Main$axialToPixel, hexSize, coord);
+		var x = _v1.a;
+		var y = _v1.b;
+		var circles = A2(
+			$elm$core$List$map,
+			function (_v2) {
+				var c = _v2.a;
+				var d = _v2.b;
+				return A2(
+					$elm$svg$Svg$circle,
+					_List_fromArray(
+						[
+							$elm$svg$Svg$Attributes$cx(
+							$elm$core$String$fromFloat(x)),
+							$elm$svg$Svg$Attributes$cy(
+							$elm$core$String$fromFloat(y)),
+							$elm$svg$Svg$Attributes$r(
+							$elm$core$String$fromFloat(radius - (radiusDelta * d))),
+							$elm$svg$Svg$Attributes$fill(
+							$author$project$Main$pieceToColor(c)),
+							$elm$svg$Svg$Attributes$stroke(
+							$author$project$Main$strokeColor(c)),
+							$elm$html$Html$Events$onClick(
+							$author$project$Main$ClickedHex(coord))
+						]),
+					_List_Nil);
+			},
+			z);
+		return A2($elm$svg$Svg$g, _List_Nil, circles);
+	});
+var $author$project$Main$viewStacks = F2(
+	function (size, board) {
+		return A2(
+			$elm$svg$Svg$g,
+			_List_Nil,
+			A2(
+				$elm$core$List$map,
+				function (_v0) {
+					var a = _v0.a;
+					var b = _v0.b;
+					return A3($author$project$Main$viewStack, size, a, b);
+				},
+				$elm$core$Dict$toList(board.stacks)));
 	});
 var $author$project$Main$winner = function (board) {
 	var whiteStackSize = A3(
@@ -11406,7 +11474,12 @@ var $author$project$Main$viewGameOver = F2(
 			_List_Nil,
 			_List_fromArray(
 				[
-					A4($author$project$Main$viewBoard, hexes, board, $elm$core$Maybe$Nothing, $elm$core$Maybe$Nothing),
+					$author$project$Main$viewBoard(
+					_List_fromArray(
+						[
+							A3($author$project$Main$viewHexes, 30, $author$project$Main$bgAttribs, hexes),
+							A2($author$project$Main$viewStacks, 30, board)
+						])),
 					$elm$html$Html$text(
 					function () {
 						var _v0 = $author$project$Main$winner(board);
@@ -11440,12 +11513,12 @@ var $author$project$Main$viewPlacement = function (placement) {
 		_List_Nil,
 		_List_fromArray(
 			[
-				A4(
-				$author$project$Main$viewBoard,
-				placement.hexes,
-				placement.board,
-				$elm$core$Maybe$Nothing,
-				$elm$core$Maybe$Just(placement.player)),
+				$author$project$Main$viewBoard(
+				_List_fromArray(
+					[
+						A3($author$project$Main$viewHexes, 30, $author$project$Main$bgAttribs, placement.hexes),
+						A2($author$project$Main$viewStacks, 30, placement.board)
+					])),
 				$elm$html$Html$text(
 				function () {
 					var _v0 = placement.player;
@@ -11468,17 +11541,62 @@ var $author$project$Main$viewPlacement = function (placement) {
 			]));
 };
 var $author$project$Main$viewPlaying = function (playing) {
+	var highlights = function () {
+		var _v1 = playing.selected;
+		if (_v1.$ === 'Nothing') {
+			return _List_fromArray(
+				[
+					A3(
+					$author$project$Main$viewHexes,
+					30,
+					_List_fromArray(
+						[
+							$elm$svg$Svg$Attributes$fill('sandybrown')
+						]),
+					$elm$core$Set$toList(
+						A2($author$project$Main$movesFor, playing.board, playing.player)))
+				]);
+		} else {
+			var coord = _v1.a;
+			return _List_fromArray(
+				[
+					A3(
+					$author$project$Main$viewHexes,
+					30,
+					_List_fromArray(
+						[
+							$elm$svg$Svg$Attributes$fill('sandybrown')
+						]),
+					_List_fromArray(
+						[coord])),
+					A3(
+					$author$project$Main$viewHexes,
+					30,
+					_List_fromArray(
+						[
+							$elm$svg$Svg$Attributes$fill('lightgreen')
+						]),
+					A2($author$project$Main$validMoves, playing.board, coord))
+				]);
+		}
+	}();
 	return A2(
 		$elm$html$Html$div,
 		_List_Nil,
 		_List_fromArray(
 			[
-				A4(
-				$author$project$Main$viewBoard,
-				playing.hexes,
-				playing.board,
-				playing.selected,
-				$elm$core$Maybe$Just(playing.player)),
+				$author$project$Main$viewBoard(
+				_Utils_ap(
+					_List_fromArray(
+						[
+							A3($author$project$Main$viewHexes, 30, $author$project$Main$bgAttribs, playing.hexes)
+						]),
+					_Utils_ap(
+						highlights,
+						_List_fromArray(
+							[
+								A2($author$project$Main$viewStacks, 30, playing.board)
+							])))),
 				$elm$html$Html$text(
 				function () {
 					var _v0 = playing.player;

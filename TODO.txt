@@ -1,4 +1,4 @@
-P1 Show stack size
+P1 CLEANUP
 
 P2 Animations
 P2 Online play (look into web rtc)

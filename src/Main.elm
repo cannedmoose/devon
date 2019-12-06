@@ -348,19 +348,24 @@ view model =
     Playing gameplay -> (viewPlaying gameplay)
     GameOver hexes board -> (viewGameOver hexes board)
 
-viewBoard : List AxialCoord -> Board -> Maybe AxialCoord -> Maybe Player -> Svg Msg
-viewBoard hexes board selected player =
+bgAttribs = [fill "blanchedalmond", stroke "burlywood"]
+
+viewBoard : List (Svg Msg) -> Svg Msg 
+viewBoard c =
   svg
       [ width "400"
       , height "400"
       , viewBox "-200 -200 800 600"
       ]
-      (hexes |> List.map (viewBoardHex board selected player))
+      c
 
 viewPlacement : Placement -> Html Msg
 viewPlacement placement =
   div []
-    [ viewBoard placement.hexes placement.board Nothing (Just placement.player)
+    [ viewBoard
+      [ viewHexes 30 bgAttribs placement.hexes
+      , viewStacks 30 placement.board
+      ]
     , Html.text 
       ( case placement.player of
         WhitePlayer -> ("Whites turn")
@@ -373,13 +378,30 @@ viewPlacement placement =
   
 viewPlaying : GamePlay -> Html Msg
 viewPlaying playing =
-  div []
-    [ viewBoard playing.hexes playing.board playing.selected (Just playing.player)
-    , Html.text 
-      (case playing.player of
-        WhitePlayer -> ("Whites turn")
-        BlackPlayer -> ("Blacks turn")
-      )]
+  let
+    highlights = case playing.selected of
+      Nothing -> (
+        [viewHexes 30 [fill "sandybrown"]
+          (Set.toList (movesFor playing.board playing.player))]
+        )
+      Just coord -> (
+        [ viewHexes 30 [fill "sandybrown"] [coord]
+        , viewHexes 30 [fill "lightgreen"]
+          (validMoves playing.board coord)]
+        )
+      
+  in
+    div []
+      [ viewBoard
+        ([ viewHexes 30 bgAttribs playing.hexes
+        ] ++ highlights ++
+        [ viewStacks 30 playing.board
+        ])
+      , Html.text 
+        (case playing.player of
+          WhitePlayer -> ("Whites turn")
+          BlackPlayer -> ("Blacks turn")
+        )]
 
 winner : Board -> Maybe Player
 winner board =
@@ -404,7 +426,10 @@ winner board =
 viewGameOver : List AxialCoord -> Board -> Html Msg
 viewGameOver hexes board =
   div []
-    [ viewBoard hexes board Nothing Nothing
+    [ viewBoard
+      [ viewHexes 30 bgAttribs hexes
+      , viewStacks 30 board
+      ]
     , Html.text 
       ( case winner board of
         Nothing -> ("You both lose")
@@ -419,54 +444,74 @@ viewGameOver hexes board =
       [Html.text "Start again"]
     ]
 
--- TODO should have some kind of hex context
--- Want board, selected, current player
-viewBoardHex : Board -> Maybe AxialCoord -> Maybe Player -> AxialCoord -> Svg Msg
-viewBoardHex board maybeSelected player coord =
-  let
-    maybePiece = getStack board coord
-    color = case maybePiece of
-      Nothing -> ("grey")
-      Just (piece , xs) -> (case piece of
-        WhitePiece -> ("white")
-        DvonnPiece -> ("red")
-        BlackPiece -> ("black"))
-    isPlayers = Maybe.map2 stackOwnedBy player maybePiece
-      |> Maybe.withDefault False
+viewHexes : Float -> List (Svg.Attribute Msg) -> List AxialCoord -> Svg Msg
+viewHexes size attribs coords =
+  g
+      []
+      (List.map (viewHexAt attribs size) coords)
 
-    selectedColor = case maybeSelected of
-      Nothing -> (
-        if List.isEmpty (validMoves board coord) || not isPlayers then Nothing
-        else Just "orange"
-        )
-      Just selected -> (
-        if selected == coord then Just "green"
-        else if List.member coord (validMoves board selected) then Just "yellow"
-        else Nothing 
-        )
+pieceToColor : Piece -> String
+pieceToColor piece =
+  case piece of
+    WhitePiece -> ("floralwhite")
+    DvonnPiece -> ("deeppink")
+    BlackPiece -> ("grey")
+
+strokeColor piece =
+  case piece of
+    WhitePiece -> ("black")
+    DvonnPiece -> ("deeppink")
+    BlackPiece -> ("black")
+
+viewStack : Float -> AxialCoord -> Stack -> Svg Msg
+viewStack hexSize coord (piece, rest) =
+  let
+    (x, y) = axialToPixel hexSize coord
+    size = stackSize (piece, rest)
+    sizeDiv2 = size // 2
+    sizeMod2 = modBy 2 size
+    stack = List.reverse (piece :: rest)
+    deltas = List.range 0 size
+    z = List.map2 (\a b -> (a, toFloat b)) stack deltas
+    radius = 0.7*hexSize
+    radiusDelta = radius/(toFloat size)
+    circles = List.map (\(c, d) ->
+      circle
+        [ cx (String.fromFloat x)
+        , cy (String.fromFloat y)
+        , r (String.fromFloat (radius - (radiusDelta * d)) )
+        , fill (pieceToColor c)
+        , stroke (strokeColor c)
+        , onClick (ClickedHex coord)
+        ]
+        []
+      ) z
   in
     g
       []
-      ([ viewCircleAt 30 20 color coord ]
-        ++  (
-        Maybe.map (viewCircleAt 30 5) selectedColor
-        |> Maybe.map (\a-> [a coord]) 
-        |> Maybe.withDefault []
-        ))
+      circles
+  
 
-viewCircleAt : Float -> Float -> String -> AxialCoord -> Svg Msg
-viewCircleAt hexSize radius c coords =
+viewStacks : Float -> Board -> Svg Msg
+viewStacks size board =
+  g
+    []
+    (Dict.toList board.stacks
+      |> List.map (\(a, b) -> viewStack size a b))
+
+viewHexAt :  List (Svg.Attribute Msg) -> Float  -> AxialCoord -> Svg Msg
+viewHexAt attribs hexSize coords =
   let
     (x, y) = axialToPixel hexSize coords
+    p = List.map toFloat (List.range 0 5) 
+      |> List.map (\a -> a * pi / 3 )
+      |> List.map (\a -> (x + hexSize * (sin a), y + hexSize * (cos a)))
+    pointsString = List.map (\(i,j) -> String.fromFloat i ++ "," ++ String.fromFloat j) p
+      |> List.intersperse " "
+      |> List.foldl (++) ""
   in
-    circle
-          [ cx (String.fromFloat x)
-          , cy (String.fromFloat y)
-          , r (String.fromFloat radius)
-          , fill c
-          , stroke "red"
-          , onClick (ClickedHex coords)
-          ]
+    polygon
+          (onClick (ClickedHex coords) :: points pointsString :: attribs)
           []
 
 
