@@ -9,6 +9,7 @@ import Svg exposing (..)
 import Svg.Attributes exposing (..)
 
 
+main : Program () Model Msg
 main =
     Browser.sandbox { init = init, update = update, view = view }
 
