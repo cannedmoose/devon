@@ -17,127 +17,6 @@ main =
 -- MODEL
 
 
-type alias AxialCoord =
-    ( Int, Int )
-
-
-type Player
-    = WhitePlayer
-    | BlackPlayer
-
-
-type Piece
-    = DvonnPiece
-    | WhitePiece
-    | BlackPiece
-
-
-
--- Stack is a none empty ist of pieces
-
-
-type alias Stack =
-    ( Piece, List Piece )
-
-
-newStack : Piece -> Stack
-newStack piece =
-    ( piece, [] )
-
-
-stackOwnedBy : Player -> Stack -> Bool
-stackOwnedBy player ( piece, _ ) =
-    case ( piece, player ) of
-        ( WhitePiece, WhitePlayer ) ->
-            True
-
-        ( BlackPiece, BlackPlayer ) ->
-            True
-
-        _ ->
-            False
-
-
-addStack : Stack -> Stack -> Stack
-addStack ( p1, l1 ) ( p2, l2 ) =
-    ( p1, l1 ++ (p2 :: l2) )
-
-
-emptyBoard : Board
-emptyBoard =
-    Board Set.empty Dict.empty
-
-
-hasStack : Board -> AxialCoord -> Bool
-hasStack board coord =
-    Dict.member coord board.stacks
-
-
-getStack : Board -> AxialCoord -> Maybe Stack
-getStack board coord =
-    Dict.get coord board.stacks
-
-
-addPiece : Board -> AxialCoord -> Piece -> Board
-addPiece board coord piece =
-    { board
-        | stacks = Dict.insert coord (newStack piece) board.stacks
-        , dvonn =
-            case piece of
-                DvonnPiece ->
-                    Set.insert coord board.dvonn
-
-                _ ->
-                    board.dvonn
-    }
-
-
-isDvonn : Board -> AxialCoord -> Bool
-isDvonn board coord =
-    Set.member coord board.dvonn
-
-
-type alias Board =
-    -- Location of dvonn pieces
-    { dvonn : Set AxialCoord
-
-    -- Location -> Stacks at that location
-    , stacks : Dict AxialCoord Stack
-    }
-
-
-type alias Placement =
-    { dvonn : Int
-    , black : Int
-    , white : Int
-    , player : Player
-    , board : Board
-    , hexes : List AxialCoord
-    }
-
-
-type alias GamePlay =
-    { player : Player
-    , selected : Maybe AxialCoord
-    , board : Board
-    , hexes : List AxialCoord
-    }
-
-
-gamePlayFromPlacement : Placement -> GamePlay
-gamePlayFromPlacement { player, board, hexes } =
-    { player = switchPlayer player, board = board, hexes = hexes, selected = Nothing }
-
-
-
--- Placement for classic game of Dvonn
-
-
-newPlacement : Placement
-newPlacement =
-    Placement 3 23 23 WhitePlayer emptyBoard (hexesGenerator 8 2)
-
-
 type GamePhase
     = Placing Placement
     | Playing GamePlay
@@ -155,6 +34,76 @@ init =
     }
 
 
+type alias AxialCoord =
+    ( Int, Int )
+
+
+type Player
+    = WhitePlayer
+    | BlackPlayer
+
+
+switchPlayer : Player -> Player
+switchPlayer player =
+    case player of
+        WhitePlayer ->
+            BlackPlayer
+
+        BlackPlayer ->
+            WhitePlayer
+
+
+type Piece
+    = DvonnPiece
+    | WhitePiece
+    | BlackPiece
+
+
+type alias Stack =
+    -- A non empty list of pieces
+    ( Piece, List Piece )
+
+
+type alias Board =
+    -- Location of dvonn pieces
+    { dvonn : Set AxialCoord
+
+    -- Location -> Stacks at that location
+    , stacks : Dict AxialCoord Stack
+    }
+
+
+type alias Placement =
+    -- Placement phase
+    { dvonn : Int
+    , black : Int
+    , white : Int
+    , player : Player
+    , board : Board
+    , hexes : List AxialCoord
+    }
+
+
+newPlacement : Placement
+newPlacement =
+    -- Placement for classic game of Dvonn
+    Placement 3 23 23 WhitePlayer emptyBoard (hexesGenerator 8 2)
+
+
+type alias GamePlay =
+    -- Playing phase
+    { player : Player
+    , selected : Maybe AxialCoord
+    , board : Board
+    , hexes : List AxialCoord
+    }
+
+
+gamePlayFromPlacement : Placement -> GamePlay
+gamePlayFromPlacement { player, board, hexes } =
+    { player = switchPlayer player, board = board, hexes = hexes, selected = Nothing }
+
+
 
 -- UPDATE
 
@@ -166,6 +115,7 @@ type Msg
     | Restart
 
 
+update : Msg -> Model -> Model
 update msg model =
     case msg of
         NoOp ->
@@ -197,105 +147,8 @@ update msg model =
             init
 
 
-switchPlayer : Player -> Player
-switchPlayer player =
-    case player of
-        WhitePlayer ->
-            BlackPlayer
 
-        BlackPlayer ->
-            WhitePlayer
-
-
-nextPlacement : Placement -> Player
-nextPlacement { player, white, black, dvonn } =
-    if dvonn > 0 then
-        switchPlayer player
-
-    else if white == 0 then
-        BlackPlayer
-
-    else if black == 0 then
-        WhitePlayer
-
-    else
-        switchPlayer player
-
-
-stacksFor : Board -> Player -> Dict AxialCoord Stack
-stacksFor board player =
-    Dict.filter (\c -> stackOwnedBy player) board.stacks
-
-
-movesFor : Board -> Player -> Set AxialCoord
-movesFor board player =
-    stacksFor board player
-        |> Dict.keys
-        |> List.filter (\c -> not (List.isEmpty (validMoves board c)))
-        |> Set.fromList
-
-
-nextPlaying : Board -> Player -> Maybe Player
-nextPlaying board player =
-    let
-        whiteMoves =
-            not (Set.isEmpty (movesFor board WhitePlayer))
-
-        blackMoves =
-            not (Set.isEmpty (movesFor board BlackPlayer))
-    in
-    if whiteMoves && blackMoves then
-        Just (switchPlayer player)
-
-    else if whiteMoves then
-        Just WhitePlayer
-
-    else if blackMoves then
-        Just BlackPlayer
-
-    else
-        Nothing
-
-
-doPlacement : AxialCoord -> Placement -> Placement
-doPlacement coord placement =
-    if hasStack placement.board coord then
-        placement
-
-    else if placement.dvonn > 0 then
-        let
-            updatePiece =
-                { placement | dvonn = placement.dvonn - 1 }
-
-            updatePlayer =
-                { updatePiece | player = nextPlacement updatePiece }
-
-            updateBoard =
-                { updatePlayer
-                    | board = addPiece placement.board coord DvonnPiece
-                }
-        in
-        updateBoard
-
-    else
-        let
-            ( updatePiece, piece ) =
-                case placement.player of
-                    WhitePlayer ->
-                        ( { placement | white = placement.white - 1 }, WhitePiece )
-
-                    BlackPlayer ->
-                        ( { placement | black = placement.black - 1 }, BlackPiece )
-
-            updatePlayer =
-                { updatePiece | player = nextPlacement updatePiece }
-
-            updateBoard =
-                { updatePlayer
-                    | board = addPiece placement.board coord piece
-                }
-        in
-        updateBoard
+-- Placing phase
 
 
 placementClick : AxialCoord -> Placement -> Model
@@ -319,6 +172,56 @@ placementClick coord placement =
         { phase = Placing updated }
 
 
+nextPlacement : Placement -> Player
+nextPlacement { player, white, black, dvonn } =
+    if dvonn > 0 then
+        switchPlayer player
+
+    else if white == 0 then
+        BlackPlayer
+
+    else if black == 0 then
+        WhitePlayer
+
+    else
+        switchPlayer player
+
+
+doPlacement : AxialCoord -> Placement -> Placement
+doPlacement coord placement =
+    if hasStack placement.board coord then
+        placement
+
+    else if placement.dvonn > 0 then
+        let
+            updatePiece =
+                { placement | dvonn = placement.dvonn - 1 }
+
+            updatePlayer =
+                { updatePiece | player = nextPlacement updatePiece }
+        in
+        { updatePlayer
+            | board = placePiece placement.board coord DvonnPiece
+        }
+
+    else
+        let
+            ( updatePiece, piece ) =
+                case placement.player of
+                    WhitePlayer ->
+                        ( { placement | white = placement.white - 1 }, WhitePiece )
+
+                    BlackPlayer ->
+                        ( { placement | black = placement.black - 1 }, BlackPiece )
+
+            updatePlayer =
+                { updatePiece | player = nextPlacement updatePiece }
+        in
+        { updatePlayer
+            | board = placePiece placement.board coord piece
+        }
+
+
 randomPlacement : Placement -> Model
 randomPlacement placement =
     let
@@ -334,127 +237,8 @@ randomPlacement placement =
     { phase = Playing (gamePlayFromPlacement updated) }
 
 
-maybeHasValue : Maybe a -> Bool
-maybeHasValue a =
-    case a of
-        Nothing ->
-            False
 
-        _ ->
-            True
-
-
-isSurrounded : Board -> AxialCoord -> Bool
-isSurrounded board coord =
-    List.map (addAxial coord) axialDirections
-        |> List.all (hasStack board)
-
-
-stackSize : Stack -> Int
-stackSize ( _, l ) =
-    1 + List.length l
-
-
-validMoves : Board -> AxialCoord -> List AxialCoord
-validMoves board coord =
-    let
-        size =
-            getStack board coord
-                |> Maybe.map stackSize
-                |> Maybe.withDefault 0
-    in
-    if size > 0 && not (isSurrounded board coord) then
-        List.map (axialMult size) axialDirections
-            |> List.map (addAxial coord)
-            |> List.filter (hasStack board)
-
-    else
-        []
-
-
-neighbours : Board -> AxialCoord -> List AxialCoord
-neighbours board coord =
-    axialDirections
-        |> List.map (addAxial coord)
-        |> List.filter (hasStack board)
-
-
-
--- Recursively flood fill a board
--- Colored are all colored peices, recent are peices colored in last call
--- For first call these should be the same.
-
-
-floodfill : Board -> Set AxialCoord -> Set AxialCoord -> Set AxialCoord
-floodfill board colored recent =
-    let
-        recentNeighbours =
-            Set.map (neighbours board) recent
-                |> Set.toList
-                |> List.concat
-                |> Set.fromList
-                |> (\s -> Set.diff s colored)
-
-        newColored =
-            Set.union colored recentNeighbours
-    in
-    if Set.isEmpty recentNeighbours then
-        colored
-
-    else
-        Set.union newColored (floodfill board newColored recentNeighbours)
-
-
-prunePieces : Board -> Board
-prunePieces board =
-    let
-        currentStacks =
-            Dict.keys board.stacks
-                |> Set.fromList
-
-        keepStacks =
-            floodfill board board.dvonn board.dvonn
-    in
-    { board
-        | stacks =
-            Set.diff currentStacks keepStacks
-                |> Set.foldl Dict.remove board.stacks
-    }
-
-
-doMove : Board -> AxialCoord -> AxialCoord -> Board
-doMove board from to =
-    let
-        fromStack =
-            getStack board from
-
-        toStack =
-            getStack board to
-
-        isFromDvonn =
-            isDvonn board from
-
-        updatedStack =
-            Maybe.map2 addStack fromStack toStack
-    in
-    case updatedStack of
-        Just stack ->
-            { board
-                | stacks =
-                    Dict.insert to stack board.stacks
-                        |> Dict.remove from
-                , dvonn =
-                    if isFromDvonn then
-                        Set.remove from board.dvonn
-                            |> Set.insert to
-
-                    else
-                        board.dvonn
-            }
-                |> prunePieces
-
-        Nothing ->
-            board
+-- Playing phase
 
 
 playingClick : AxialCoord -> GamePlay -> Model
@@ -475,8 +259,8 @@ playingClick coord playing =
                 -- Nothing selected
                 Nothing ->
                     if
-                        (validMoves board coord |> List.isEmpty)
-                            || not (stackOwnedBy player stack)
+                        List.isEmpty (movesFrom board coord)
+                            || not (isStackOwnedBy player stack)
                     then
                         -- No valid moves or stack is owned by someone else, do nothing.
                         { phase = Playing playing }
@@ -487,7 +271,7 @@ playingClick coord playing =
 
                 -- Something selected
                 Just selected ->
-                    if List.member coord (validMoves board selected) then
+                    if List.member coord (movesFrom board selected) then
                         -- Is a valid move, do it and change turns/end game
                         let
                             newBoard =
@@ -515,10 +299,50 @@ playingClick coord playing =
                         { phase = Playing { playing | selected = Nothing } }
 
 
+nextPlaying : Board -> Player -> Maybe Player
+nextPlaying board player =
+    let
+        whiteMoves =
+            not (List.isEmpty (movesFor board WhitePlayer))
+
+        blackMoves =
+            not (List.isEmpty (movesFor board BlackPlayer))
+    in
+    if whiteMoves && blackMoves then
+        Just (switchPlayer player)
+
+    else if whiteMoves then
+        Just WhitePlayer
+
+    else if blackMoves then
+        Just BlackPlayer
+
+    else
+        Nothing
+
+
+prunePieces : Board -> Board
+prunePieces board =
+    let
+        currentStacks =
+            Dict.keys board.stacks
+                |> Set.fromList
+
+        keepStacks =
+            floodfill (neighbours board 1) board.dvonn board.dvonn
+    in
+    { board
+        | stacks =
+            Set.diff currentStacks keepStacks
+                |> Set.foldl Dict.remove board.stacks
+    }
+
+
 
 -- VIEW
 
 
+view : Model -> Html Msg
 view model =
     case model.phase of
         Placing placement ->
@@ -531,6 +355,7 @@ view model =
             viewGameOver hexes board
 
 
+bgAttribs : List (Svg.Attribute Msg)
 bgAttribs =
     [ fill "blanchedalmond", stroke "burlywood" ]
 
@@ -574,23 +399,21 @@ viewPlaying playing =
                 Nothing ->
                     [ viewHexes 30
                         [ fill "sandybrown" ]
-                        (Set.toList (movesFor playing.board playing.player))
+                        (movesFor playing.board playing.player)
                     ]
 
                 Just coord ->
                     [ viewHexes 30 [ fill "sandybrown" ] [ coord ]
                     , viewHexes 30
                         [ fill "lightgreen" ]
-                        (validMoves playing.board coord)
+                        (movesFrom playing.board coord)
                     ]
     in
     div []
         [ viewBoard
-            ([ viewHexes 30 bgAttribs playing.hexes
-             ]
-                ++ highlights
-                ++ [ viewStacks 30 playing.board
-                   ]
+            (viewHexes 30 bgAttribs playing.hexes
+                :: highlights
+                ++ [ viewStacks 30 playing.board ]
             )
         , Html.text
             (case playing.player of
@@ -674,6 +497,7 @@ pieceToColor piece =
             "grey"
 
 
+strokeColor : Piece -> String
 strokeColor piece =
     case piece of
         WhitePiece ->
@@ -694,12 +518,6 @@ viewStack hexSize coord ( piece, rest ) =
 
         size =
             stackSize ( piece, rest )
-
-        sizeDiv2 =
-            size // 2
-
-        sizeMod2 =
-            modBy 2 size
 
         stack =
             List.reverse (piece :: rest)
@@ -770,6 +588,38 @@ viewHexAt attribs hexSize coords =
 -- UTILS
 
 
+floodfill : (comparable -> List comparable) -> Set comparable -> Set comparable -> Set comparable
+floodfill neighbourFn colored recentlyColored =
+    let
+        newlyColored =
+            Set.diff
+                (Set.toList recentlyColored
+                    |> List.map neighbourFn
+                    |> List.concat
+                    |> Set.fromList
+                )
+                colored
+
+        newColored =
+            Set.union colored newlyColored
+    in
+    if Set.isEmpty newlyColored then
+        colored
+
+    else
+        Set.union newColored (floodfill neighbourFn newColored newlyColored)
+
+
+maybeHasValue : Maybe a -> Bool
+maybeHasValue a =
+    case a of
+        Nothing ->
+            False
+
+        _ ->
+            True
+
+
 foldlish : (a -> b -> b) -> b -> List a -> List b
 foldlish fn start list =
     case list of
@@ -790,7 +640,7 @@ zip a b =
 
 
 
--- Axial
+-- Axial Coordinate helpers
 
 
 addAxial : AxialCoord -> AxialCoord -> AxialCoord
@@ -813,16 +663,153 @@ axialDirections =
     [ ( 1, 0 ), ( 0, 1 ), ( -1, 1 ), ( -1, 0 ), ( 0, -1 ), ( 1, -1 ) ]
 
 
-boardRange : Int -> Int -> List Int
-boardRange width diag =
-    [ width, diag, diag, width, diag, diag ]
-
-
 axialToPixel : Float -> AxialCoord -> ( Float, Float )
 axialToPixel size ( q, r ) =
     ( size * (sqrt 3 * toFloat q + toFloat r * sqrt 3 / 2)
     , size * (3 / 2) * toFloat r
     )
+
+
+boardOutline : Int -> Int -> List Int
+boardOutline width diag =
+    [ width, diag, diag, width, diag, diag ]
+
+
+
+-- Stack helpers
+
+
+newStack : Piece -> Stack
+newStack piece =
+    ( piece, [] )
+
+
+stackSize : Stack -> Int
+stackSize ( _, l ) =
+    1 + List.length l
+
+
+addStack : Stack -> Stack -> Stack
+addStack ( p1, l1 ) ( p2, l2 ) =
+    ( p1, l1 ++ (p2 :: l2) )
+
+
+isStackOwnedBy : Player -> Stack -> Bool
+isStackOwnedBy player ( piece, _ ) =
+    case ( piece, player ) of
+        ( WhitePiece, WhitePlayer ) ->
+            True
+
+        ( BlackPiece, BlackPlayer ) ->
+            True
+
+        _ ->
+            False
+
+
+
+-- Board helpers
+
+
+emptyBoard : Board
+emptyBoard =
+    Board Set.empty Dict.empty
+
+
+placePiece : Board -> AxialCoord -> Piece -> Board
+placePiece board coord piece =
+    { board
+        | stacks = Dict.insert coord (newStack piece) board.stacks
+        , dvonn =
+            case piece of
+                DvonnPiece ->
+                    Set.insert coord board.dvonn
+
+                _ ->
+                    board.dvonn
+    }
+
+
+doMove : Board -> AxialCoord -> AxialCoord -> Board
+doMove board from to =
+    let
+        fromStack =
+            getStack board from
+
+        toStack =
+            getStack board to
+
+        isFromDvonn =
+            Set.member from board.dvonn
+
+        updatedStack =
+            Maybe.map2 addStack fromStack toStack
+    in
+    case updatedStack of
+        Just stack ->
+            { board
+                | stacks =
+                    Dict.insert to stack board.stacks
+                        |> Dict.remove from
+                , dvonn =
+                    if isFromDvonn then
+                        Set.remove from board.dvonn
+                            |> Set.insert to
+
+                    else
+                        board.dvonn
+            }
+                |> prunePieces
+
+        Nothing ->
+            board
+
+
+neighbours : Board -> Int -> AxialCoord -> List AxialCoord
+neighbours board distance coord =
+    List.map (axialMult distance) axialDirections
+        |> List.map (addAxial coord)
+        |> List.filter (hasStack board)
+
+
+hasStack : Board -> AxialCoord -> Bool
+hasStack board coord =
+    Dict.member coord board.stacks
+
+
+getStack : Board -> AxialCoord -> Maybe Stack
+getStack board coord =
+    Dict.get coord board.stacks
+
+
+stacksFor : Board -> Player -> Dict AxialCoord Stack
+stacksFor board player =
+    Dict.filter (\_ -> isStackOwnedBy player) board.stacks
+
+
+movesFor : Board -> Player -> List AxialCoord
+movesFor board player =
+    stacksFor board player
+        |> Dict.keys
+        |> List.filter (\c -> not (List.isEmpty (movesFrom board c)))
+
+
+movesFrom : Board -> AxialCoord -> List AxialCoord
+movesFrom board coord =
+    let
+        size =
+            getStack board coord
+                |> Maybe.map stackSize
+                |> Maybe.withDefault 0
+
+        surrounded =
+            List.length (neighbours board 1 coord) == 6
+    in
+    if size > 0 && not surrounded then
+        neighbours board size coord
+
+    else
+        []
 
 
 
@@ -846,7 +833,7 @@ genRing width diag rad =
         directions =
             List.map2
                 zip
-                (boardRange (width - rad) (diag - rad))
+                (boardOutline (width - rad) (diag - rad))
                 axialDirections
 
         -- Positions of the corners
@@ -857,7 +844,7 @@ genRing width diag rad =
                     origin
                     (List.map (\( a, d ) -> multAxial d a) directions)
     in
-    if List.any (\( a, d ) -> a == 0) directions then
+    if List.any (\( a, _ ) -> a == 0) directions then
         -- Cover case where it's a single line and not full ring
         hexesInDirection ( width - rad + 1, ( 1, 0 ) ) origin
 

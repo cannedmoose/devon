@@ -5146,7 +5146,7 @@ var $author$project$Main$axialDirections = _List_fromArray(
 		_Utils_Tuple2(0, -1),
 		_Utils_Tuple2(1, -1)
 	]);
-var $author$project$Main$boardRange = F2(
+var $author$project$Main$boardOutline = F2(
 	function (width, diag) {
 		return _List_fromArray(
 			[width, diag, diag, width, diag, diag]);
@@ -5236,7 +5236,7 @@ var $author$project$Main$genRing = F3(
 		var directions = A3(
 			$elm$core$List$map2,
 			$author$project$Main$zip,
-			A2($author$project$Main$boardRange, width - rad, diag - rad),
+			A2($author$project$Main$boardOutline, width - rad, diag - rad),
 			$author$project$Main$axialDirections);
 		var origins = A2(
 			$elm$core$List$cons,
@@ -5257,7 +5257,6 @@ var $author$project$Main$genRing = F3(
 			$elm$core$List$any,
 			function (_v0) {
 				var a = _v0.a;
-				var d = _v0.b;
 				return !a;
 			},
 			directions) ? A2(
@@ -10693,34 +10692,6 @@ var $author$project$Main$Playing = function (a) {
 var $author$project$Main$BlackPiece = {$: 'BlackPiece'};
 var $author$project$Main$DvonnPiece = {$: 'DvonnPiece'};
 var $author$project$Main$WhitePiece = {$: 'WhitePiece'};
-var $elm$core$Set$insert = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return $elm$core$Set$Set_elm_builtin(
-			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
-	});
-var $author$project$Main$newStack = function (piece) {
-	return _Utils_Tuple2(piece, _List_Nil);
-};
-var $author$project$Main$addPiece = F3(
-	function (board, coord, piece) {
-		return _Utils_update(
-			board,
-			{
-				dvonn: function () {
-					if (piece.$ === 'DvonnPiece') {
-						return A2($elm$core$Set$insert, coord, board.dvonn);
-					} else {
-						return board.dvonn;
-					}
-				}(),
-				stacks: A3(
-					$elm$core$Dict$insert,
-					coord,
-					$author$project$Main$newStack(piece),
-					board.stacks)
-			});
-	});
 var $elm$core$Dict$member = F2(
 	function (key, dict) {
 		var _v0 = A2($elm$core$Dict$get, key, dict);
@@ -10749,6 +10720,34 @@ var $author$project$Main$nextPlacement = function (_v0) {
 	var dvonn = _v0.dvonn;
 	return (dvonn > 0) ? $author$project$Main$switchPlayer(player) : ((!white) ? $author$project$Main$BlackPlayer : ((!black) ? $author$project$Main$WhitePlayer : $author$project$Main$switchPlayer(player)));
 };
+var $elm$core$Set$insert = F2(
+	function (key, _v0) {
+		var dict = _v0.a;
+		return $elm$core$Set$Set_elm_builtin(
+			A3($elm$core$Dict$insert, key, _Utils_Tuple0, dict));
+	});
+var $author$project$Main$newStack = function (piece) {
+	return _Utils_Tuple2(piece, _List_Nil);
+};
+var $author$project$Main$placePiece = F3(
+	function (board, coord, piece) {
+		return _Utils_update(
+			board,
+			{
+				dvonn: function () {
+					if (piece.$ === 'DvonnPiece') {
+						return A2($elm$core$Set$insert, coord, board.dvonn);
+					} else {
+						return board.dvonn;
+					}
+				}(),
+				stacks: A3(
+					$elm$core$Dict$insert,
+					coord,
+					$author$project$Main$newStack(piece),
+					board.stacks)
+			});
+	});
 var $author$project$Main$doPlacement = F2(
 	function (coord, placement) {
 		if (A2($author$project$Main$hasStack, placement.board, coord)) {
@@ -10763,12 +10762,11 @@ var $author$project$Main$doPlacement = F2(
 					{
 						player: $author$project$Main$nextPlacement(updatePiece)
 					});
-				var updateBoard = _Utils_update(
+				return _Utils_update(
 					updatePlayer,
 					{
-						board: A3($author$project$Main$addPiece, placement.board, coord, $author$project$Main$DvonnPiece)
+						board: A3($author$project$Main$placePiece, placement.board, coord, $author$project$Main$DvonnPiece)
 					});
-				return updateBoard;
 			} else {
 				var _v0 = function () {
 					var _v1 = placement.player;
@@ -10793,12 +10791,11 @@ var $author$project$Main$doPlacement = F2(
 					{
 						player: $author$project$Main$nextPlacement(updatePiece)
 					});
-				var updateBoard = _Utils_update(
+				return _Utils_update(
 					updatePlayer,
 					{
-						board: A3($author$project$Main$addPiece, placement.board, coord, piece)
+						board: A3($author$project$Main$placePiece, placement.board, coord, piece)
 					});
-				return updateBoard;
 			}
 		}
 	});
@@ -10844,15 +10841,6 @@ var $author$project$Main$getStack = F2(
 	function (board, coord) {
 		return A2($elm$core$Dict$get, coord, board.stacks);
 	});
-var $elm$core$Set$member = F2(
-	function (key, _v0) {
-		var dict = _v0.a;
-		return A2($elm$core$Dict$member, key, dict);
-	});
-var $author$project$Main$isDvonn = F2(
-	function (board, coord) {
-		return A2($elm$core$Set$member, coord, board.dvonn);
-	});
 var $elm$core$Maybe$map2 = F3(
 	function (func, ma, mb) {
 		if (ma.$ === 'Nothing') {
@@ -10867,6 +10855,11 @@ var $elm$core$Maybe$map2 = F3(
 					A2(func, a, b));
 			}
 		}
+	});
+var $elm$core$Set$member = F2(
+	function (key, _v0) {
+		var dict = _v0.a;
+		return A2($elm$core$Dict$member, key, dict);
 	});
 var $elm$core$Dict$diff = F2(
 	function (t1, t2) {
@@ -10893,54 +10886,6 @@ var $elm$core$Set$isEmpty = function (_v0) {
 	var dict = _v0.a;
 	return $elm$core$Dict$isEmpty(dict);
 };
-var $elm$core$Set$foldl = F3(
-	function (func, initialState, _v0) {
-		var dict = _v0.a;
-		return A3(
-			$elm$core$Dict$foldl,
-			F3(
-				function (key, _v1, state) {
-					return A2(func, key, state);
-				}),
-			initialState,
-			dict);
-	});
-var $elm$core$Set$map = F2(
-	function (func, set) {
-		return $elm$core$Set$fromList(
-			A3(
-				$elm$core$Set$foldl,
-				F2(
-					function (x, xs) {
-						return A2(
-							$elm$core$List$cons,
-							func(x),
-							xs);
-					}),
-				_List_Nil,
-				set));
-	});
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
-var $author$project$Main$neighbours = F2(
-	function (board, coord) {
-		return A2(
-			$elm$core$List$filter,
-			$author$project$Main$hasStack(board),
-			A2(
-				$elm$core$List$map,
-				$author$project$Main$addAxial(coord),
-				$author$project$Main$axialDirections));
-	});
 var $elm$core$Dict$union = F2(
 	function (t1, t2) {
 		return A3($elm$core$Dict$foldl, $elm$core$Dict$insert, t2, t1);
@@ -10953,25 +10898,70 @@ var $elm$core$Set$union = F2(
 			A2($elm$core$Dict$union, dict1, dict2));
 	});
 var $author$project$Main$floodfill = F3(
-	function (board, colored, recent) {
-		var recentNeighbours = function (s) {
-			return A2($elm$core$Set$diff, s, colored);
-		}(
+	function (neighbourFn, colored, recentlyColored) {
+		var newlyColored = A2(
+			$elm$core$Set$diff,
 			$elm$core$Set$fromList(
 				$elm$core$List$concat(
-					$elm$core$Set$toList(
-						A2(
-							$elm$core$Set$map,
-							$author$project$Main$neighbours(board),
-							recent)))));
-		var newColored = A2($elm$core$Set$union, colored, recentNeighbours);
-		return $elm$core$Set$isEmpty(recentNeighbours) ? colored : A2(
+					A2(
+						$elm$core$List$map,
+						neighbourFn,
+						$elm$core$Set$toList(recentlyColored)))),
+			colored);
+		var newColored = A2($elm$core$Set$union, colored, newlyColored);
+		return $elm$core$Set$isEmpty(newlyColored) ? colored : A2(
 			$elm$core$Set$union,
 			newColored,
-			A3($author$project$Main$floodfill, board, newColored, recentNeighbours));
+			A3($author$project$Main$floodfill, neighbourFn, newColored, newlyColored));
+	});
+var $elm$core$Set$foldl = F3(
+	function (func, initialState, _v0) {
+		var dict = _v0.a;
+		return A3(
+			$elm$core$Dict$foldl,
+			F3(
+				function (key, _v1, state) {
+					return A2(func, key, state);
+				}),
+			initialState,
+			dict);
+	});
+var $author$project$Main$axialMult = F2(
+	function (v, _v0) {
+		var q = _v0.a;
+		var r = _v0.b;
+		return _Utils_Tuple2(v * q, v * r);
+	});
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $author$project$Main$neighbours = F3(
+	function (board, distance, coord) {
+		return A2(
+			$elm$core$List$filter,
+			$author$project$Main$hasStack(board),
+			A2(
+				$elm$core$List$map,
+				$author$project$Main$addAxial(coord),
+				A2(
+					$elm$core$List$map,
+					$author$project$Main$axialMult(distance),
+					$author$project$Main$axialDirections)));
 	});
 var $author$project$Main$prunePieces = function (board) {
-	var keepStacks = A3($author$project$Main$floodfill, board, board.dvonn, board.dvonn);
+	var keepStacks = A3(
+		$author$project$Main$floodfill,
+		A2($author$project$Main$neighbours, board, 1),
+		board.dvonn,
+		board.dvonn);
 	var currentStacks = $elm$core$Set$fromList(
 		$elm$core$Dict$keys(board.stacks));
 	return _Utils_update(
@@ -10993,7 +10983,7 @@ var $elm$core$Set$remove = F2(
 var $author$project$Main$doMove = F3(
 	function (board, from, to) {
 		var toStack = A2($author$project$Main$getStack, board, to);
-		var isFromDvonn = A2($author$project$Main$isDvonn, board, from);
+		var isFromDvonn = A2($elm$core$Set$member, from, board.dvonn);
 		var fromStack = A2($author$project$Main$getStack, board, from);
 		var updatedStack = A3($elm$core$Maybe$map2, $author$project$Main$addStack, fromStack, toStack);
 		if (updatedStack.$ === 'Just') {
@@ -11015,27 +11005,7 @@ var $author$project$Main$doMove = F3(
 			return board;
 		}
 	});
-var $elm$core$List$member = F2(
-	function (x, xs) {
-		return A2(
-			$elm$core$List$any,
-			function (a) {
-				return _Utils_eq(a, x);
-			},
-			xs);
-	});
-var $elm$core$Dict$filter = F2(
-	function (isGood, dict) {
-		return A3(
-			$elm$core$Dict$foldl,
-			F3(
-				function (k, v, d) {
-					return A2(isGood, k, v) ? A3($elm$core$Dict$insert, k, v, d) : d;
-				}),
-			$elm$core$Dict$empty,
-			dict);
-	});
-var $author$project$Main$stackOwnedBy = F2(
+var $author$project$Main$isStackOwnedBy = F2(
 	function (player, _v0) {
 		var piece = _v0.a;
 		var _v1 = _Utils_Tuple2(piece, player);
@@ -11061,37 +11031,14 @@ var $author$project$Main$stackOwnedBy = F2(
 		}
 		return false;
 	});
-var $author$project$Main$stacksFor = F2(
-	function (board, player) {
+var $elm$core$List$member = F2(
+	function (x, xs) {
 		return A2(
-			$elm$core$Dict$filter,
-			function (c) {
-				return $author$project$Main$stackOwnedBy(player);
-			},
-			board.stacks);
-	});
-var $author$project$Main$axialMult = F2(
-	function (v, _v0) {
-		var q = _v0.a;
-		var r = _v0.b;
-		return _Utils_Tuple2(v * q, v * r);
-	});
-var $elm$core$List$all = F2(
-	function (isOkay, list) {
-		return !A2(
 			$elm$core$List$any,
-			A2($elm$core$Basics$composeL, $elm$core$Basics$not, isOkay),
-			list);
-	});
-var $author$project$Main$isSurrounded = F2(
-	function (board, coord) {
-		return A2(
-			$elm$core$List$all,
-			$author$project$Main$hasStack(board),
-			A2(
-				$elm$core$List$map,
-				$author$project$Main$addAxial(coord),
-				$author$project$Main$axialDirections));
+			function (a) {
+				return _Utils_eq(a, x);
+			},
+			xs);
 	});
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
@@ -11104,12 +11051,13 @@ var $elm$core$Maybe$map = F2(
 		}
 	});
 var $author$project$Main$stackSize = function (_v0) {
-	var a = _v0.a;
 	var l = _v0.b;
 	return 1 + $elm$core$List$length(l);
 };
-var $author$project$Main$validMoves = F2(
+var $author$project$Main$movesFrom = F2(
 	function (board, coord) {
+		var surrounded = $elm$core$List$length(
+			A3($author$project$Main$neighbours, board, 1, coord)) === 6;
 		var size = A2(
 			$elm$core$Maybe$withDefault,
 			0,
@@ -11117,34 +11065,44 @@ var $author$project$Main$validMoves = F2(
 				$elm$core$Maybe$map,
 				$author$project$Main$stackSize,
 				A2($author$project$Main$getStack, board, coord)));
-		return ((size > 0) && (!A2($author$project$Main$isSurrounded, board, coord))) ? A2(
-			$elm$core$List$filter,
-			$author$project$Main$hasStack(board),
-			A2(
-				$elm$core$List$map,
-				$author$project$Main$addAxial(coord),
-				A2(
-					$elm$core$List$map,
-					$author$project$Main$axialMult(size),
-					$author$project$Main$axialDirections))) : _List_Nil;
+		return ((size > 0) && (!surrounded)) ? A3($author$project$Main$neighbours, board, size, coord) : _List_Nil;
+	});
+var $elm$core$Dict$filter = F2(
+	function (isGood, dict) {
+		return A3(
+			$elm$core$Dict$foldl,
+			F3(
+				function (k, v, d) {
+					return A2(isGood, k, v) ? A3($elm$core$Dict$insert, k, v, d) : d;
+				}),
+			$elm$core$Dict$empty,
+			dict);
+	});
+var $author$project$Main$stacksFor = F2(
+	function (board, player) {
+		return A2(
+			$elm$core$Dict$filter,
+			function (_v0) {
+				return $author$project$Main$isStackOwnedBy(player);
+			},
+			board.stacks);
 	});
 var $author$project$Main$movesFor = F2(
 	function (board, player) {
-		return $elm$core$Set$fromList(
-			A2(
-				$elm$core$List$filter,
-				function (c) {
-					return !$elm$core$List$isEmpty(
-						A2($author$project$Main$validMoves, board, c));
-				},
-				$elm$core$Dict$keys(
-					A2($author$project$Main$stacksFor, board, player))));
+		return A2(
+			$elm$core$List$filter,
+			function (c) {
+				return !$elm$core$List$isEmpty(
+					A2($author$project$Main$movesFrom, board, c));
+			},
+			$elm$core$Dict$keys(
+				A2($author$project$Main$stacksFor, board, player)));
 	});
 var $author$project$Main$nextPlaying = F2(
 	function (board, player) {
-		var whiteMoves = !$elm$core$Set$isEmpty(
+		var whiteMoves = !$elm$core$List$isEmpty(
 			A2($author$project$Main$movesFor, board, $author$project$Main$WhitePlayer));
-		var blackMoves = !$elm$core$Set$isEmpty(
+		var blackMoves = !$elm$core$List$isEmpty(
 			A2($author$project$Main$movesFor, board, $author$project$Main$BlackPlayer));
 		return (whiteMoves && blackMoves) ? $elm$core$Maybe$Just(
 			$author$project$Main$switchPlayer(player)) : (whiteMoves ? $elm$core$Maybe$Just($author$project$Main$WhitePlayer) : (blackMoves ? $elm$core$Maybe$Just($author$project$Main$BlackPlayer) : $elm$core$Maybe$Nothing));
@@ -11167,7 +11125,7 @@ var $author$project$Main$playingClick = F2(
 			var _v2 = playing.selected;
 			if (_v2.$ === 'Nothing') {
 				return ($elm$core$List$isEmpty(
-					A2($author$project$Main$validMoves, board, coord)) || (!A2($author$project$Main$stackOwnedBy, player, stack))) ? {
+					A2($author$project$Main$movesFrom, board, coord)) || (!A2($author$project$Main$isStackOwnedBy, player, stack))) ? {
 					phase: $author$project$Main$Playing(playing)
 				} : {
 					phase: $author$project$Main$Playing(
@@ -11182,7 +11140,7 @@ var $author$project$Main$playingClick = F2(
 				if (A2(
 					$elm$core$List$member,
 					coord,
-					A2($author$project$Main$validMoves, board, selected))) {
+					A2($author$project$Main$movesFrom, board, selected))) {
 					var newBoard = A3($author$project$Main$doMove, board, selected, coord);
 					var maybeNextPlayer = A2($author$project$Main$nextPlaying, newBoard, player);
 					if (maybeNextPlayer.$ === 'Nothing') {
@@ -11247,7 +11205,6 @@ var $author$project$Main$update = F2(
 						var placement = _v2.a;
 						return $author$project$Main$randomPlacement(placement);
 					case 'Playing':
-						var gameplay = _v2.a;
 						return model;
 					default:
 						return model;
@@ -11359,7 +11316,6 @@ var $author$project$Main$viewHexes = F3(
 var $elm$svg$Svg$circle = $elm$svg$Svg$trustedNode('circle');
 var $elm$svg$Svg$Attributes$cx = _VirtualDom_attribute('cx');
 var $elm$svg$Svg$Attributes$cy = _VirtualDom_attribute('cy');
-var $elm$core$Basics$modBy = _Basics_modBy;
 var $author$project$Main$pieceToColor = function (piece) {
 	switch (piece.$) {
 		case 'WhitePiece':
@@ -11389,8 +11345,6 @@ var $author$project$Main$viewStack = F3(
 			A2($elm$core$List$cons, piece, rest));
 		var size = $author$project$Main$stackSize(
 			_Utils_Tuple2(piece, rest));
-		var sizeDiv2 = (size / 2) | 0;
-		var sizeMod2 = A2($elm$core$Basics$modBy, 2, size);
 		var radius = 0.7 * hexSize;
 		var radiusDelta = radius / size;
 		var deltas = A2($elm$core$List$range, 0, size);
@@ -11553,8 +11507,7 @@ var $author$project$Main$viewPlaying = function (playing) {
 						[
 							$elm$svg$Svg$Attributes$fill('sandybrown')
 						]),
-					$elm$core$Set$toList(
-						A2($author$project$Main$movesFor, playing.board, playing.player)))
+					A2($author$project$Main$movesFor, playing.board, playing.player))
 				]);
 		} else {
 			var coord = _v1.a;
@@ -11576,7 +11529,7 @@ var $author$project$Main$viewPlaying = function (playing) {
 						[
 							$elm$svg$Svg$Attributes$fill('lightgreen')
 						]),
-					A2($author$project$Main$validMoves, playing.board, coord))
+					A2($author$project$Main$movesFrom, playing.board, coord))
 				]);
 		}
 	}();
@@ -11586,11 +11539,9 @@ var $author$project$Main$viewPlaying = function (playing) {
 		_List_fromArray(
 			[
 				$author$project$Main$viewBoard(
-				_Utils_ap(
-					_List_fromArray(
-						[
-							A3($author$project$Main$viewHexes, 30, $author$project$Main$bgAttribs, playing.hexes)
-						]),
+				A2(
+					$elm$core$List$cons,
+					A3($author$project$Main$viewHexes, 30, $author$project$Main$bgAttribs, playing.hexes),
 					_Utils_ap(
 						highlights,
 						_List_fromArray(
